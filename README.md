@@ -1,2 +1,3 @@
-# webd
-Simple dev static HTTP server.
+# WebD
+
+WebD is a simple development static HTTP server.
