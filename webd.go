@@ -57,7 +57,7 @@ func main() {
 		close(idleConnClosed)
 	}()
 
-	logInfo.Printf("listening on %s, (directory '%s')", server.Addr, root)
+	logInfo.Printf("listening on %s, (timeout=%v, directory=%v)", server.Addr, timeout, root)
 	if err := server.ListenAndServe(); (err != nil) && (err != http.ErrServerClosed) {
 		logError.Printf("error starting server: %v", err)
 	}
