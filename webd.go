@@ -23,16 +23,19 @@ var (
 
 func main() {
 	var (
-		host, root string
-		port       uint
-		version    bool
-		timeout    time.Duration
+		host, root     string
+		port           uint
+		version        bool
+		timeout        time.Duration
+		user, password string
 	)
 	flag.StringVar(&host, "host", "127.0.0.1", "host to listen on")
 	flag.UintVar(&port, "port", 8080, "port to listen on")
 	flag.StringVar(&root, "root", ".", "root directory to serve")
 	flag.BoolVar(&version, "version", false, "show version")
 	flag.DurationVar(&timeout, "timeout", time.Second*5, "timeout for requests")
+	flag.StringVar(&user, "user", "", "username for basic auth")
+	flag.StringVar(&password, "password", "", "password for basic auth")
 
 	flag.Parse()
 	if version {
@@ -40,7 +43,7 @@ func main() {
 		return
 	}
 
-	server := newServer(root, host, port, timeout)
+	server := newServer(root, host, user, password, port, timeout)
 	idleConnClosed := make(chan struct{}) // to wait http server shutdown
 
 	go func() {
@@ -57,7 +60,10 @@ func main() {
 		close(idleConnClosed)
 	}()
 
-	logInfo.Printf("listening on %s, (timeout=%v, directory=%v)", server.Addr, timeout, root)
+	logInfo.Printf(
+		"listening on %s, (user=%v, timeout=%v, directory=%v)",
+		server.Addr, user, timeout, root,
+	)
 	if err := server.ListenAndServe(); (err != nil) && (err != http.ErrServerClosed) {
 		logError.Printf("error starting server: %v", err)
 	}
