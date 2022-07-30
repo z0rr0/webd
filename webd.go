@@ -11,6 +11,8 @@ import (
 	"runtime/debug"
 	"syscall"
 	"time"
+
+	"github.com/z0rr0/webd/server"
 )
 
 var (
@@ -42,8 +44,17 @@ func main() {
 		showVersion()
 		return
 	}
-
-	server := newServer(root, host, user, password, port, timeout)
+	params := server.Params{
+		Root:     root,
+		Host:     host,
+		Port:     port,
+		User:     user,
+		Password: password,
+		Timeout:  timeout,
+		LogInfo:  logInfo,
+		LogError: logError,
+	}
+	s := server.New(params)
 	idleConnClosed := make(chan struct{}) // to wait http server shutdown
 
 	go func() {
@@ -54,7 +65,7 @@ func main() {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 
-		if err := server.Shutdown(ctx); err != nil {
+		if err := s.Shutdown(ctx); err != nil {
 			logError.Printf("error shutting down server: %v", err)
 		}
 		close(idleConnClosed)
@@ -62,9 +73,9 @@ func main() {
 
 	logInfo.Printf(
 		"listening on %s, (user=%v, timeout=%v, directory=%v)",
-		server.Addr, user, timeout, root,
+		s.Addr, user, timeout, root,
 	)
-	if err := server.ListenAndServe(); (err != nil) && (err != http.ErrServerClosed) {
+	if err := s.ListenAndServe(); (err != nil) && (err != http.ErrServerClosed) {
 		logError.Printf("error starting server: %v", err)
 	}
 	<-idleConnClosed
