@@ -15,6 +15,9 @@ import (
 	"github.com/z0rr0/webd/server"
 )
 
+// name is the name of the program.
+const name = "WebD"
+
 var (
 	logError = log.New(os.Stderr, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 	logInfo  = log.New(os.Stdout, "INFO: ", log.LstdFlags)
@@ -83,7 +86,6 @@ func main() {
 }
 
 func showVersion() {
-	const name = "WebD"
 	var keys = map[string]string{
 		"vcs":          "",
 		"vcs.revision": "",
