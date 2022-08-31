@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+const maxNameLength = 32
+
 var (
 	// ErrBasicAuthRequired is returned when basic auth is required.
 	ErrBasicAuthRequired = fmt.Errorf("basic auth required")
@@ -31,17 +33,28 @@ type Params struct {
 	LogError *log.Logger
 }
 
-func toHTTPError(w http.ResponseWriter, err error) {
+type fileItem struct {
+	name string
+	url  string
+}
+
+// toHTTPError writes an error to the response.
+func (h *handler) toHTTPError(w http.ResponseWriter, err error) {
 	var (
-		msg  = "500 Internal Server Error"
 		code = http.StatusInternalServerError
+		msg  = "500 Internal Server Error"
 	)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
-		msg, code = "404 page not found", http.StatusNotFound
+		code, msg = http.StatusNotFound, "404 page not found"
 	case errors.Is(err, fs.ErrPermission):
-		msg, code = "403 Forbidden", http.StatusForbidden
+		code, msg = http.StatusForbidden, "403 Forbidden"
+	case errors.Is(err, ErrBasicAuthRequired):
+		code, msg = http.StatusUnauthorized, "401 Unauthorized (auth required)"
+	case errors.Is(err, ErrBasicAuthFailed):
+		code, msg = http.StatusUnauthorized, "401 Unauthorized (auth failed)"
 	}
+	h.logError.Printf("error response [%d]: %v / %v", code, err, msg)
 	http.Error(w, msg, code)
 }
 
@@ -86,13 +99,13 @@ func (h *handler) auth(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+// ServeHTTP is HTTP handler for the server.
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	defer h.logInfo.Printf("%-5v\t%-12v\t%v", r.Method, time.Since(start), r.URL.String())
 
 	if err := h.auth(w, r); err != nil {
-		h.logError.Printf("error auth: %v", err)
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		h.toHTTPError(w, err)
 		return
 	}
 
@@ -101,26 +114,28 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		upath = "/" + upath
 		r.URL.Path = upath
 	}
+	// TODO: replace after dev is ready
 	// h.serveFile(w, r)  // custom implementation
-	h.fileServer.ServeHTTP(w, r) // std implementation
+	h.fileServer.ServeHTTP(w, r) // standard library implementation
 }
 
+// serveFile is URL HTTP handler.
 func (h *handler) serveFile(w http.ResponseWriter, r *http.Request) {
 	var name = path.Clean(r.URL.Path)
 
 	f, err := h.root.Open(name)
 	if err != nil {
-		toHTTPError(w, err)
+		h.toHTTPError(w, err)
 		return
 	}
 	defer func() {
 		if errClose := f.Close(); errClose != nil {
-			h.logError.Printf("error closing file: %v", errClose)
+			h.logError.Printf("error closing file '%s': %v", name, errClose)
 		}
 	}()
 	d, err := f.Stat()
 	if err != nil {
-		toHTTPError(w, err)
+		h.toHTTPError(w, err)
 		return
 	}
 	if d.IsDir() {
@@ -131,6 +146,10 @@ func (h *handler) serveFile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+}
+
+func (h *handler) dirList(w http.ResponseWriter, r *http.Request, f http.File) {
+
 }
 
 // New returns new server.

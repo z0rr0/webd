@@ -85,6 +85,7 @@ func main() {
 	logInfo.Println("server successfully stopped")
 }
 
+// showVersion prints the version of the program.
 func showVersion() {
 	var keys = map[string]string{
 		"vcs":          "",
